@@ -43,6 +43,7 @@ args = parser.parse_args()
 # Sanity Check command line options
 if not args.user:
     print("ERROR: Required Argument --user not set.")
+    parser.print_help()
     sys.exit(0)
 if not args.email:
     print("ERROR: Required Argument --email not set.")
