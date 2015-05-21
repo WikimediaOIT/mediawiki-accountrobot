@@ -25,18 +25,25 @@ import requests
 import sys
 import argparse
 
-login='OITBot (WMF)'
-
 wikiurls=['https://office.wikimedia.org',
           'https://collab.wikimedia.org',
           'https://wikimediafoundation.org']
 
 # Command line options
-parser = argparse.ArgumentParser()
-parser.add_argument("-u", "--user", help="User Name eg. 'JDoe (WMF)'", required=True)
-parser.add_argument("-e", "--email", help="User EMail eg. 'jdoe@wikimedia.org'", reqired=True)
-parser.add_argument("-d", "--debug", help="Run In Debug Mode -- DOES NOT APPLY CHANGES",
-                    action="store_true")
+parser = argparse.ArgumentParser(description='Automating Mediawiki Account Creation')
+parser.add_argument("-u", "--user", 
+          help="New User Mediawiki Account Name eg. 'JDoe (WMF)'", 
+          required=True)
+parser.add_argument("-e", "--email", 
+          help="User EMail eg. 'jdoe@wikimedia.org'", 
+          required=True)
+parser.add_argument("-l", "--login", 
+          help="Admin User Mediawiki Account eg. 'AdminUsers'",
+          default="OITBot (WMF)")
+
+parser.add_argument("-d", "--debug", 
+          help="Run In Debug Mode -- DOES NOT APPLY CHANGES",
+          action="store_true")
 
 args = parser.parse_args()
 
@@ -58,13 +65,13 @@ for wikiurl in wikiurls:
     session = requests.Session()
 
     ############################################################
-    # Login
+    # Login To MediaWiki as Admin User
     endpoint='/w/api.php?action=login'
     url='%s/%s' % (wikiurl, endpoint)
 
     # API Post variables
     payload = {
-        'lgname':     login,
+        'lgname':     args.login,
         'lgpassword': password,
         'lgtoken':    '',
         'format':     'json',
