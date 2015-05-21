@@ -33,8 +33,8 @@ wikiurls=['https://office.wikimedia.org',
 
 # Command line options
 parser = argparse.ArgumentParser()
-parser.add_argument("-u", "--user", help="User Name eg. 'JDoe (WMF)'")
-parser.add_argument("-e", "--email", help="User EMail eg. 'jdoe@wikimedia.org'")
+parser.add_argument("-u", "--user", help="User Name eg. 'JDoe (WMF)'", required=True)
+parser.add_argument("-e", "--email", help="User EMail eg. 'jdoe@wikimedia.org'", required=True)
 parser.add_argument("-d", "--debug", help="Run In Debug Mode -- DOES NOT APPLY CHANGES",
                     action="store_true")
 
