@@ -42,11 +42,12 @@ args = parser.parse_args()
 
 # Sanity Check command line options
 if not args.user:
-    print("Required Argument --user not set.")
-    sys.exit(2)
+    print("ERROR: Required Argument --user not set.")
+    sys.exit(0)
 if not args.email:
-    print("Required Argument --email not set.")
-    sys.exit(2)
+    print("ERROR: Required Argument --email not set.")
+    parser.print_help()
+    sys.exit(0)
 
 if args.debug:
     print('Debug Mode')
