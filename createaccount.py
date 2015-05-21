@@ -33,34 +33,19 @@ wikiurls=['https://office.wikimedia.org',
 
 # Command line options
 parser = argparse.ArgumentParser()
-parser.add_argument("-u", "--user", help="User Name eg. 'JDoe (WMF)'", required=True)
-parser.add_argument("-e", "--email", help="User EMail eg. 'jdoe@wikimedia.org'", required=True)
+parser.add_argument("-u", "--user", help="User Name eg. 'JDoe (WMF)'")
+parser.add_argument("-e", "--email", help="User EMail eg. 'jdoe@wikimedia.org'")
 parser.add_argument("-d", "--debug", help="Run In Debug Mode -- DOES NOT APPLY CHANGES",
                     action="store_true")
 
 args = parser.parse_args()
 
-# Sanity Check command line options
-if not args.user:
-    print("ERROR: Required Argument --user not set.")
-    parser.print_help()
-    sys.exit(0)
-if not args.email:
-    print("ERROR: Required Argument --email not set.")
-    parser.print_help()
-    sys.exit(0)
-
 if args.debug:
     print('Debug Mode')
 
-
-newuser=args.user
-useremail=args.email
-
-
 print 'Creating New Wiki Accounts'
-print 'User:    ', newuser
-print 'Email:   ', useremail
+print 'User:    ', args.user
+print 'Email:   ', args.email
 
 # Ask user for OITBOT Password
 password = getpass.getpass('Password for %s :' % (login))
@@ -68,7 +53,6 @@ password = getpass.getpass('Password for %s :' % (login))
 for wikiurl in wikiurls:
     # Debug/Prep
     print 'Wiki:    ', wikiurl
-
 
     # Use session to persist cookies
     session = requests.Session()
@@ -80,10 +64,10 @@ for wikiurl in wikiurls:
 
     # API Post variables
     payload = {
-        'lgname': login,
-        'lgpassword' : password,
-        'lgtoken' : '',
-        'format': 'json',
+        'lgname':     login,
+        'lgpassword': password,
+        'lgtoken':    '',
+        'format':     'json',
         }
 
     # Make initial request
@@ -105,30 +89,29 @@ for wikiurl in wikiurls:
         print 'Something went wrong'
         continue
 
-
     ############################################################
     # Create account
+
+    if args.debug:
+        print 'Skipping Creation -- debug mode'
+        continue
+
     endpoint='/w/api.php?action=createaccount'
     url='%s/%s' % (wikiurl, endpoint)
 
     # API Post variables
     payload = {
-        'name': newuser,
-        'email': useremail,
+        'name': args.user,
+        'email': args.email,
         'mailpassword': 'true',
         'reason': 'New Employee',
         'token': '',
         'format': 'json',
         }
 
-    if args.debug:
-        print 'Skipping Creation -- debug mode'
-        continue
-
-
     # Make initial request
     result = session.post(url, data=payload)
-    print result.text
+    print("Response: %s" % (result.text))
     data=result.json()
 
     # If initial request was successful, make second request using token
@@ -136,8 +119,8 @@ for wikiurl in wikiurls:
         # grab token from first post, and add to new post
         payload['token'] = str(data["createaccount"]["token"])
         result2 = session.post(url, data=payload)
-        print result2.text
+        print("Response: %s" % (result2.text))
     else:
-        print 'Something went wrong'
+        print('Something went wrong')
         continue
         
