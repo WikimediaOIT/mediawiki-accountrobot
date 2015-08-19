@@ -1,20 +1,20 @@
 #!/usr/bin/python
 
 """
-This script can be used to create a user account on mediawiki wikis using
-the web API defined here, https://www.mediawiki.org/wiki/API:Main_page
+This script can be used to create OR block a user account on mediawiki wikis
+using the web APIs.
+https://www.mediawiki.org/wiki/API:Main_page
 
-It only uses two API endpoints (login and createaccount).
-You need WRITE access (must login) to create an account.
+The script users a few api endpoints: login, createaccount, query and block.
+Your user login account needs rights to perform the given actions.
 
-It prompts the user for a password to login.
+The script prompts the user for a password to login.
+(all wikis need to use the same password)
 
 The flow of the mediawiki API requires an initial call, which returns a token.
 The token must be used on a second call to apply the command.
 
 FIXME:
-Add 'Block' user ability
-Add command line options to select create vs block.
 Add command line options to loop over many newuser/useremail pairs.
 """
 
@@ -30,6 +30,7 @@ wikiurls = [
     'https://office.wikimedia.org',
     'https://collab.wikimedia.org',
     'https://wikimediafoundation.org'
+#    'https://meta.wikimedia.org',
     ]
 
 # Command line options
@@ -46,7 +47,11 @@ parser.add_argument(
 parser.add_argument(
     "-l", "--login",
     help="Admin User Mediawiki Account eg. 'AdminUsers'",
-    default="JDoe (WMF)")
+    default="JAdmin (WMF)")
+parser.add_argument(
+    "-b", "--block",
+    help="BLOCK account instead of CREATE",
+    action="store_true")
 parser.add_argument(
     "-d", "--debug",
     help="Run In Debug Mode -- DOES NOT APPLY CHANGES",
@@ -103,40 +108,80 @@ for wikiurl in wikiurls:
         print 'Something went wrong'
         continue
 
-    ############################################################
-    # Create account
-
     if args.debug:
         print 'Skipping Creation -- debug mode'
         continue
 
-    endpoint = '/w/api.php?action=createaccount'
-    url = '%s/%s' % (wikiurl, endpoint)
+    # BLOCK
+    if args.block:
+        # https://www.mediawiki.org/wiki/API:Block
+        print 'Blocking'
+        endpoint = '/w/api.php?action=query'
+        url = '%s/%s' % (wikiurl, endpoint)
 
-    # API Post variables
-    payload = {
-        'name': args.user,
-        'email': args.email,
-        'mailpassword': 'true',
-        'reason': 'New Employee',
-        'token': '',
-        'format': 'json',
-        }
+        # API Post variables
+        payload = {
+            'format': 'json',
+            'meta': 'tokens'}
 
-    # Make initial request
-    result = session.post(url, data=payload)
-    print("Response: %s" % (result.text))
-    data = result.json()
+        # Make initial request
+        result = session.post(url, data=payload)
+        print("Response: %s" % (result.text))
+        data = result.json()
 
-    # If initial request was successful, make second request using token
-    if 'createaccount' in data and 'token' in data['createaccount']:
-        # grab token from first post, and add to new post
-        payload['token'] = str(data["createaccount"]["token"])
+        # If initial request was successful, make second request using token
+        if 'query' in data and 'csrftoken' in data['query']['tokens']:
 
-        # temporary workaround for TitleBlacklist Extension
-        payload['wpIgnoreTitleBlacklist'] = 'true'
-        result2 = session.post(url, data=payload)
-        print("Response: %s" % (result2.text))
+            # Make a second request using a the token
+            payload.pop('meta', None)
+            payload['token'] = str(data['query']['tokens']['csrftoken'])
+            payload['user'] = args.user
+            payload['expiry'] = 'indefinite'
+            payload['reason'] = 'No longer employed with WMF'
+
+            endpoint = '/w/api.php?action=block'
+            url = '%s/%s' % (wikiurl, endpoint)
+            result2 = session.post(url, data=payload)
+            print("Response: %s" % (result2.text))
+        else:
+            print('Something went wrong')
+            print data
+            continue
+
+    # CREATE
     else:
-        print('Something went wrong')
-        continue
+        # https://www.mediawiki.org/wiki/API:Account_creation
+        # Default behavior is to create
+        endpoint = '/w/api.php?action=createaccount'
+        url = '%s/%s' % (wikiurl, endpoint)
+
+        # API Post variables
+        payload = {
+            'name': args.user,
+            'email': args.email,
+            'mailpassword': 'true',
+            'reason': 'New Employee',
+            'token': '',
+            'format': 'json',
+            }
+
+        # Make initial request to get a token
+        result = session.post(url, data=payload)
+        print("Response: %s" % (result.text))
+        data = result.json()
+
+        # If initial request was successful, make second request using token
+        if 'createaccount' in data and 'token' in data['createaccount']:
+            # grab token from first post, and add to new post
+            payload['token'] = str(data["createaccount"]["token"])
+
+            # temporary workaround for TitleBlacklist Extension
+            payload['wpIgnoreTitleBlacklist'] = 'true'
+
+            # Make second request using token
+            result2 = session.post(url, data=payload)
+            print("Response: %s" % (result2.text))
+        else:
+            print('Something went wrong')
+            print data
+            continue
