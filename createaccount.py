@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
 """
-This script can be used to create a user account on mediawiki wikis using the web API.
-https://www.mediawiki.org/wiki/API:Main_page
+This script can be used to create a user account on mediawiki wikis using
+the web API defined here, https://www.mediawiki.org/wiki/API:Main_page
 
 It only uses two API endpoints (login and createaccount).
-It assumes that you need WRITE access (must login) to create an account.
+You need WRITE access (must login) to create an account.
 
 It prompts the user for a password to login.
 
@@ -15,7 +15,6 @@ The token must be used on a second call to apply the command.
 FIXME:
 Add 'Block' user ability
 Add command line options to select create vs block.
-Add command line option to select if we need login or not.
 Add command line options to loop over many newuser/useremail pairs.
 """
 
@@ -25,25 +24,33 @@ import requests
 import sys
 import argparse
 
-wikiurls=['https://office.wikimedia.org',
-          'https://collab.wikimedia.org',
-          'https://wikimediafoundation.org']
+# List of Wikis to create accounts on
+# NOTE: login user password for each must be the same
+wikiurls = [
+    'https://office.wikimedia.org',
+    'https://collab.wikimedia.org',
+    'https://wikimediafoundation.org'
+    ]
 
 # Command line options
-parser = argparse.ArgumentParser(description='Automating Mediawiki Account Creation')
-parser.add_argument("-u", "--user", 
-          help="New User Mediawiki Account Name eg. 'JDoe (WMF)'", 
-          required=True)
-parser.add_argument("-e", "--email", 
-          help="User EMail eg. 'jdoe@wikimedia.org'", 
-          required=True)
-parser.add_argument("-l", "--login", 
-          help="Admin User Mediawiki Account eg. 'AdminUsers'",
-          default="OITBot (WMF)")
-
-parser.add_argument("-d", "--debug", 
-          help="Run In Debug Mode -- DOES NOT APPLY CHANGES",
-          action="store_true")
+parser = argparse.ArgumentParser(
+    description='Automating Mediawiki Account Creation')
+parser.add_argument(
+    "-u", "--user",
+    help="New User Mediawiki Account Name eg. 'JDoe (WMF)'",
+    required=True)
+parser.add_argument(
+    "-e", "--email",
+    help="User EMail eg. 'jdoe@wikimedia.org'",
+    required=True)
+parser.add_argument(
+    "-l", "--login",
+    help="Admin User Mediawiki Account eg. 'AdminUsers'",
+    default="JDoe (WMF)")
+parser.add_argument(
+    "-d", "--debug",
+    help="Run In Debug Mode -- DOES NOT APPLY CHANGES",
+    action="store_true")
 
 args = parser.parse_args()
 
@@ -54,8 +61,8 @@ print 'Creating New Wiki Accounts'
 print 'User:    ', args.user
 print 'Email:   ', args.email
 
-# Ask user for OITBOT Password
-password = getpass.getpass('Password for %s :' % (login))
+# Ask user for login Password
+password = getpass.getpass('Password for %s :' % (args.login))
 
 for wikiurl in wikiurls:
     # Debug/Prep
@@ -66,8 +73,8 @@ for wikiurl in wikiurls:
 
     ############################################################
     # Login To MediaWiki as Admin User
-    endpoint='/w/api.php?action=login'
-    url='%s/%s' % (wikiurl, endpoint)
+    endpoint = '/w/api.php?action=login'
+    url = '%s/%s' % (wikiurl, endpoint)
 
     # API Post variables
     payload = {
@@ -83,7 +90,7 @@ for wikiurl in wikiurls:
     if args.debug:
         print result.text
 
-    data=result.json()
+    data = result.json()
 
     # If initial request was successful, make second request using token
     if 'login' in data and 'token' in data['login']:
@@ -103,8 +110,8 @@ for wikiurl in wikiurls:
         print 'Skipping Creation -- debug mode'
         continue
 
-    endpoint='/w/api.php?action=createaccount'
-    url='%s/%s' % (wikiurl, endpoint)
+    endpoint = '/w/api.php?action=createaccount'
+    url = '%s/%s' % (wikiurl, endpoint)
 
     # API Post variables
     payload = {
@@ -119,15 +126,17 @@ for wikiurl in wikiurls:
     # Make initial request
     result = session.post(url, data=payload)
     print("Response: %s" % (result.text))
-    data=result.json()
+    data = result.json()
 
     # If initial request was successful, make second request using token
     if 'createaccount' in data and 'token' in data['createaccount']:
         # grab token from first post, and add to new post
         payload['token'] = str(data["createaccount"]["token"])
+
+        # temporary workaround for TitleBlacklist Extension
+        payload['wpIgnoreTitleBlacklist'] = 'true'
         result2 = session.post(url, data=payload)
         print("Response: %s" % (result2.text))
     else:
         print('Something went wrong')
         continue
-        
