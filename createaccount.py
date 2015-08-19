@@ -5,17 +5,17 @@ This script can be used to create OR block a user account on mediawiki wikis
 using the web APIs.
 https://www.mediawiki.org/wiki/API:Main_page
 
-The script users a few api endpoints: login, createaccount, query and block.
-Your user login account needs rights to perform the given actions.
+The script uses a few api endpoints: login, createaccount, query and block.
+Your user login account needs access rights to perform the given actions.
 
 The script prompts the user for a password to login.
-(all wikis need to use the same password)
+(for simplicty, all wikis need to use the same password)
 
 The flow of the mediawiki API requires an initial call, which returns a token.
 The token must be used on a second call to apply the command.
 
 FIXME:
-Add command line options to loop over many newuser/useremail pairs.
+Add command line options to loop over many newuser/useremail pairs. (read csv?)
 """
 
 ############################################################
@@ -30,12 +30,12 @@ wikiurls = [
     'https://office.wikimedia.org',
     'https://collab.wikimedia.org',
     'https://wikimediafoundation.org'
-#    'https://meta.wikimedia.org',
+    'https://meta.wikimedia.org',
     ]
 
 # Command line options
 parser = argparse.ArgumentParser(
-    description='Automating Mediawiki Account Creation')
+    description='Automating Mediawiki Account Creation or Blocks')
 parser.add_argument(
     "-u", "--user",
     help="New User Mediawiki Account Name eg. 'JDoe (WMF)'",
@@ -132,7 +132,7 @@ for wikiurl in wikiurls:
         # If initial request was successful, make second request using token
         if 'query' in data and 'csrftoken' in data['query']['tokens']:
 
-            # Make a second request using a the token
+            # Make a second request using the token
             payload.pop('meta', None)
             payload['token'] = str(data['query']['tokens']['csrftoken'])
             payload['user'] = args.user
@@ -165,7 +165,7 @@ for wikiurl in wikiurls:
             'format': 'json',
             }
 
-        # Make initial request to get a token
+        # Make initial request to get token
         result = session.post(url, data=payload)
         print("Response: %s" % (result.text))
         data = result.json()
