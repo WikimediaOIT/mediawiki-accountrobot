@@ -78,8 +78,9 @@ else:
         print 'ERROR: User or Name not given.'
         sys.exit(2)
     elif not args.email:
-        print 'ERROR: Email or Name not given.'
-        sys.exit(2)
+        if not args.block:
+            print 'ERROR: Email or Name not given.'
+            sys.exit(2)
 
 
 print 'Creating New Wiki Accounts'
@@ -140,6 +141,10 @@ for wikiurl in wikiurls:
         endpoint = '/w/api.php?action=query'
         url = '%s/%s' % (wikiurl, endpoint)
 
+        if 'meta' in wikiurl:
+            print "WARNING: meta/sul does not support block, use a lock"
+            continue
+
         # API Post variables
         payload = {
             'format': 'json',
@@ -147,7 +152,8 @@ for wikiurl in wikiurls:
 
         # Make initial request
         result = session.post(url, data=payload)
-        print("Response: %s" % (result.text))
+        if args.debug:
+            print("Response: %s" % (result.text))
         data = result.json()
 
         # If initial request was successful, make second request using token
