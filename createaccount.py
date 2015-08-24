@@ -23,13 +23,14 @@ import getpass
 import requests
 import sys
 import argparse
+import json
 
 # List of Wikis to create accounts on
 # NOTE: login user password for each must be the same
 wikiurls = [
     'https://office.wikimedia.org',
     'https://collab.wikimedia.org',
-    'https://wikimediafoundation.org'
+    'https://wikimediafoundation.org',
     'https://meta.wikimedia.org',
     ]
 
@@ -37,13 +38,17 @@ wikiurls = [
 parser = argparse.ArgumentParser(
     description='Automating Mediawiki Account Creation or Blocks')
 parser.add_argument(
+    "-n", "--name",
+    help="New User Full Name (use as a shortcut INSTEAD of --user and --email)"
+    )
+parser.add_argument(
     "-u", "--user",
-    help="New User Mediawiki Account Name eg. 'JDoe (WMF)'",
-    required=True)
+    help="New User Mediawiki Account Name eg. 'JDoe (WMF)'"
+    )
 parser.add_argument(
     "-e", "--email",
-    help="User EMail eg. 'jdoe@wikimedia.org'",
-    required=True)
+    help="New User EMail eg. 'jdoe@wikimedia.org'"
+    )
 parser.add_argument(
     "-l", "--login",
     help="Admin User Mediawiki Account eg. 'AdminUsers'",
@@ -62,6 +67,21 @@ args = parser.parse_args()
 if args.debug:
     print('Debug Mode')
 
+# Test for required option combinations
+
+if args.name:
+    (first, last) = args.name.split()
+    args.user = "%s%s (WMF)" % (first[0], last)
+    args.email = "%s%s@wikimedia.org" % (first[0].lower(), last.lower())
+else:
+    if not args.user:
+        print 'ERROR: User or Name not given.'
+        sys.exit(2)
+    elif not args.email:
+        print 'ERROR: Email or Name not given.'
+        sys.exit(2)
+
+
 print 'Creating New Wiki Accounts'
 print 'User:    ', args.user
 print 'Email:   ', args.email
@@ -71,6 +91,7 @@ password = getpass.getpass('Password for %s :' % (args.login))
 
 for wikiurl in wikiurls:
     # Debug/Prep
+    print '-'*80
     print 'Wiki:    ', wikiurl
 
     # Use session to persist cookies
@@ -167,7 +188,9 @@ for wikiurl in wikiurls:
 
         # Make initial request to get token
         result = session.post(url, data=payload)
-        print("Response: %s" % (result.text))
+
+        if args.debug:
+            print("Auth Response: %s" % (result.text))
         data = result.json()
 
         # If initial request was successful, make second request using token
@@ -180,8 +203,8 @@ for wikiurl in wikiurls:
 
             # Make second request using token
             result2 = session.post(url, data=payload)
-            print("Response: %s" % (result2.text))
+            print json.dumps(result2.json(), sort_keys=True, indent=4)
         else:
             print('Something went wrong')
-            print data
+            print json.dumps(result2.json(), sort_keys=True, indent=4)
             continue
