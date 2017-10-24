@@ -27,12 +27,12 @@ import json
 
 # List of Wikis to create accounts on
 # NOTE: login user password for each must be the same
-wikiurls = [
-    'https://office.wikimedia.org',
-    'https://collab.wikimedia.org',
-    'https://wikimediafoundation.org',
-    'https://meta.wikimedia.org',
-    ]
+# wikiurls = [
+#     # 'https://office.wikimedia.org',
+#     # 'https://collab.wikimedia.org',
+#     'https://wikimediafoundation.org',
+#     # 'https://meta.wikimedia.org',
+#     ]
 
 # Command line options
 parser = argparse.ArgumentParser(
@@ -54,8 +54,16 @@ parser.add_argument(
     help="Admin User Mediawiki Account eg. 'AdminUsers'",
     default="JAdmin (WMF)")
 parser.add_argument(
+    "-w", "--wiki",
+    help="Which wiki's to manage",
+    default="office, collab, wikimediafoundation, meta")
+parser.add_argument(
     "-b", "--block",
     help="BLOCK account instead of CREATE",
+    action="store_true")
+parser.add_argument(
+    "-L", "--Lock",
+    help="LOCK account instead of CREATE",
     action="store_true")
 parser.add_argument(
     "-d", "--debug",
@@ -82,10 +90,28 @@ else:
             print 'ERROR: Email or Name not given.'
             sys.exit(2)
 
+if args.wiki:
+    wikis = args.wiki.split(',')
+
+wikis = [x.strip() for x in wikis]
+
+wikiurls = []
+
+for wiki in wikis:
+    if wiki == 'office':
+        wikiurls.append('https://office.wikimedia.org')
+    if wiki == 'collab':
+        wikiurls.append('https://collab.wikimedia.org')
+    if wiki == 'meta':
+        wikiurls.append('https://meta.wikimedia.org')
+    if wiki == 'wikimediafoundation':
+        wikiurls.append('https://wikimediafoundation.org')
 
 print 'Creating New Wiki Accounts'
 print 'User:    ', args.user
 print 'Email:   ', args.email
+print 'Wikis:'
+for wiki in wikiurls: print '   ', wiki
 
 # Ask user for login Password
 password = getpass.getpass('Password for %s :' % (args.login))
@@ -98,16 +124,41 @@ for wikiurl in wikiurls:
     # Use session to persist cookies
     session = requests.Session()
 
+    ## First get a token
+
+    token_endpoint = '/w/api.php?action=query'
+    token_url = '%s/%s' % (wikiurl, token_endpoint)
+
+
+    token_request = {
+        'meta' : 'tokens',
+        'type' : 'login',
+        'format':     'json',
+    }
+
+    token_result = session.post(token_url, data=token_request)
+
+    # Print Token result
+    print "TOKEN RESULT"
+    print token_result.text
+
+    token_data = token_result.json()
+
+    login_token = str(token_data["query"]["tokens"]["logintoken"])
+
+
     ############################################################
     # Login To MediaWiki as Admin User
-    endpoint = '/w/api.php?action=login'
+    endpoint = '/w/api.php?action=clientlogin'
     url = '%s/%s' % (wikiurl, endpoint)
+
 
     # API Post variables
     payload = {
-        'lgname':     args.login,
-        'lgpassword': password,
-        'lgtoken':    '',
+        'username':     args.login,
+        'password': password,
+        'logintoken':    login_token,
+        'loginreturnurl': url,
         'format':     'json',
         }
 
@@ -119,64 +170,154 @@ for wikiurl in wikiurls:
 
     data = result.json()
 
-    # If initial request was successful, make second request using token
-    if 'login' in data and 'token' in data['login']:
-        # grab token from first post, and add to new post
-        payload['lgtoken'] = str(data["login"]["token"])
-        result2 = session.post(url, data=payload)
-        if args.debug:
-            print result2.text
-    else:
-        print 'Something went wrong'
-        continue
+    # # If initial request was successful, make second request using token
+    # if 'login' in data and 'token' in data['login']:
+    #     # grab token from first post, and add to new post
+    #     payload['logintoken'] = str(data["login"]["token"])
+    #     result2 = session.post(url, data=payload)
+    #     if args.debug:
+    #         print result2.text
+    # else:
+    #     print 'Something went wrong with LOGIN'
+    #     continue
+
+    print "hello?!"
 
     if args.debug:
         print 'Skipping Creation -- debug mode'
         continue
 
+    # LOCK Account
+    if args.Lock:
+
+        token_endpoint = '/w/api.php?action=query'
+        token_url = '%s/%s' % (wikiurl, token_endpoint)
+
+
+        token_request = {
+            'meta' : 'tokens',
+            'type' : 'setglobalaccountstatus',
+            'format':     'json',
+        }
+
+        token_result = session.post(token_url, data=token_request)
+
+        # Print Token result
+        print "TOKEN RESULT"
+        print token_result.text
+
+        token_data = token_result.json()
+
+        setglobalaccountstatus_token = str(token_data["query"]["tokens"]["setglobalaccountstatustoken"])
+
+        print setglobalaccountstatus_token
+
+        lock_payload = {}
+
+        lock_payload['token'] = setglobalaccountstatus_token
+        lock_payload['user'] = args.user
+        lock_payload['locked'] = "lock"
+        lock_payload['reason'] = 'No longer employed with WMF'
+        lock_payload['format'] = 'json'
+
+        endpoint = '/w/api.php?action=setglobalaccountstatus'
+        url = '%s/%s' % (wikiurl, endpoint)
+        result2 = session.post(url, data=lock_payload)
+        print("Response: %s" % (result2.text))
+
+        continue
+
     # BLOCK
     if args.block:
+
+        # First get a CSRF Token
+
+        token_endpoint = '/w/api.php?action=query'
+        token_url = '%s/%s' % (wikiurl, token_endpoint)
+
+
+        token_request = {
+            'meta' : 'tokens',
+            'type' : 'csrf',
+            'format':     'json',
+        }
+
+        token_result = session.post(token_url, data=token_request)
+
+        # Print Token result
+        print "TOKEN RESULT"
+        print token_result.text
+
+        token_data = token_result.json()
+
+        csrf_token = str(token_data["query"]["tokens"]["csrftoken"])
+
+        print csrf_token
+
         # https://www.mediawiki.org/wiki/API:Block
         print 'Blocking'
         endpoint = '/w/api.php?action=query'
         url = '%s/%s' % (wikiurl, endpoint)
 
-        if 'meta' in wikiurl:
-            print "WARNING: meta/sul does not support block, use a lock"
-            continue
+        # if 'meta' in wikiurl:
+        #     print "WARNING: meta/sul does not support block, use a lock"
+        #     continue
 
         # API Post variables
         payload = {
             'format': 'json',
             'meta': 'tokens'}
 
-        # Make initial request
-        result = session.post(url, data=payload)
-        if args.debug:
-            print("Response: %s" % (result.text))
-        data = result.json()
-
-        # If initial request was successful, make second request using token
-        if 'query' in data and 'csrftoken' in data['query']['tokens']:
+        # # Make initial request
+        # result = session.post(url, data=payload)
+        # if args.debug:
+        #     print("Response: %s" % (result.text))
+        # data = result.json()
+        #
+        # # If initial request was successful, make second request using token
+        # if 'query' in data and 'csrftoken' in data['query']['tokens']:
 
             # Make a second request using the token
-            payload.pop('meta', None)
-            payload['token'] = str(data['query']['tokens']['csrftoken'])
-            payload['user'] = args.user
-            payload['expiry'] = 'indefinite'
-            payload['reason'] = 'No longer employed with WMF'
+        payload.pop('meta', None)
+        payload['token'] = str(token_data['query']['tokens']['csrftoken'])
+        payload['user'] = args.user
+        payload['expiry'] = 'indefinite'
+        payload['reason'] = 'No longer employed with WMF'
 
-            endpoint = '/w/api.php?action=block'
-            url = '%s/%s' % (wikiurl, endpoint)
-            result2 = session.post(url, data=payload)
-            print("Response: %s" % (result2.text))
-        else:
-            print('Something went wrong')
-            print data
-            continue
+        endpoint = '/w/api.php?action=block'
+        url = '%s/%s' % (wikiurl, endpoint)
+        result2 = session.post(url, data=payload)
+        print("Response: %s" % (result2.text))
+        # else:
+        #     print('Something went wrong with BLOCK')
+        #     print data
+        #     continue
 
     # CREATE
     else:
+        ## First get a token
+
+        token_endpoint = '/w/api.php?action=query'
+        token_url = '%s/%s' % (wikiurl, token_endpoint)
+
+
+        token_request = {
+            'meta' : 'tokens',
+            'type' : 'createaccount',
+            'format':     'json',
+        }
+
+        token_result = session.post(token_url, data=token_request)
+
+        # Print Token result
+        print "TOKEN RESULT"
+        print token_result.text
+
+        token_data = token_result.json()
+
+        createaccount_token = str(token_data["query"]["tokens"]["createaccounttoken"])
+
+        print createaccount_token
         # https://www.mediawiki.org/wiki/API:Account_creation
         # Default behavior is to create
         endpoint = '/w/api.php?action=createaccount'
@@ -184,13 +325,17 @@ for wikiurl in wikiurls:
 
         # API Post variables
         payload = {
-            'name': args.user,
+            'username': args.user,
             'email': args.email,
             'mailpassword': 'true',
             'reason': 'New Employee',
-            'token': '',
+            'createtoken': createaccount_token,
+            'createreturnurl': url,
             'format': 'json',
             }
+
+        print payload
+
 
         # Make initial request to get token
         result = session.post(url, data=payload)
@@ -200,17 +345,17 @@ for wikiurl in wikiurls:
         data = result.json()
 
         # If initial request was successful, make second request using token
-        if 'createaccount' in data and 'token' in data['createaccount']:
+        # if 'createaccount' in data and 'token' in data['createaccount']:
             # grab token from first post, and add to new post
-            payload['token'] = str(data["createaccount"]["token"])
+            # payload['token'] = str(data["createaccount"]["token"])
 
             # temporary workaround for TitleBlacklist Extension
-            payload['wpIgnoreTitleBlacklist'] = 'true'
+        payload['ignoreTitleBlacklist'] = 'true'
 
-            # Make second request using token
-            result2 = session.post(url, data=payload)
-            print json.dumps(result2.json(), sort_keys=True, indent=4)
-        else:
-            print('Something went wrong')
-            print json.dumps(result2.json(), sort_keys=True, indent=4)
-            continue
+        # Make second request using token
+        result2 = session.post(url, data=payload)
+        print json.dumps(result2.json(), sort_keys=True, indent=4)
+        # else:
+        #     print('Something went wrong with CREATE')
+        #     print json.dumps(result2.json(), sort_keys=True, indent=4)
+        #     continue
