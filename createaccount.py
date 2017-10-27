@@ -57,6 +57,10 @@ def define_arguments():
         help="BLOCK account instead of CREATE",
         action="store_true")
     parser.add_argument(
+        "-c", "--create",
+        help="Create account",
+        action="store_true")
+    parser.add_argument(
         "-L", "--Lock",
         help="LOCK account instead of CREATE",
         action="store_true")
@@ -132,11 +136,8 @@ def start_session(args, wikiurl):
     # Make initial request
     result = SESSION.post(url, data=payload)
 
-    data = result.json()
-
     if args.debug:
         print result.text
-        print data
 
 def lock_account(args, wikiurl):
     global SESSION
@@ -331,10 +332,10 @@ def main():
         if args.Lock and wikiurl == 'https://meta.wikimedia.org':
             lock_account(args, wikiurl)
 
-        if args.block and wikiurl != 'https://meta.wikimedia.org':
+        elif args.block and wikiurl != 'https://meta.wikimedia.org':
             block_account(args, wikiurl)
 
-        else:
+        elif args.create:
             create_account(args, wikiurl)
 
 
